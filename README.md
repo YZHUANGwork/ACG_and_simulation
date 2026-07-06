@@ -1,6 +1,8 @@
-https://github.com/YZHUANGwork/ACG_and_simulation/blob/main/RESULT/valley_animation.mp4
+## Valley Animation
+<video src="https://github.com/YZHUANGwork/ACG_and_simulation/raw/main/RESULT/valley_animation.mp4" controls></video>
 
-https://github.com/YZHUANGwork/ACG_and_simulation/blob/main/RESULT/BRS_animation.mp4
+## BRS Animation
+<video src="https://github.com/YZHUANGwork/ACG_and_simulation/raw/main/RESULT/BRS_animation.mp4" controls></video>
 
-https://github.com/YZHUANGwork/ACG_and_simulation/blob/main/RESULT/GEASS_animation.mp4
-
+## GEASS Animation
+<video src="https://github.com/YZHUANGwork/ACG_and_simulation/raw/main/RESULT/GEASS_animation.mp4" controls></video>
