@@ -79,7 +79,40 @@ def color_row_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, sort = 'ro
         hex_colors[select] = select_normal_color(select, color_i, np.ones(3)*sigma_color)   
     
     return hex_colors
+def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_layers, sigma_color=0.03, end_weight=0.2, period=None):
+    Y = np.array([[1.0], [0.0]])
+    row, col = center
 
+    frontiers = [[center]]
+    for n in range(1, n_layers + 1):
+        _, frontier = cg.hex_neighbours_n(row, col, n=n, return_frontier=True)
+        ring = [h for h in frontier if h in arr]
+        if not ring:
+            break
+        frontiers.append(ring)
+
+    n_steps = len(frontiers)
+    X = cg.steps_to_Q(n_steps, end_weight=end_weight)
+
+    target = color_f
+    for i, frontier in enumerate(frontiers):
+        if period and i > 0 and i % period == 0:
+            color_i, target = target, color_i
+
+        select = [(r,c) in frontier for r, c in hex_rc_arr]
+        V_input = np.array([color_i, target])
+        Color_output, _ = EXP.expected_value(X, Y, V_input)
+        color_i = Color_output[0]
+
+        hex_colors[select] = select_normal_color(select, color_i, np.ones(3)*sigma_color)
+
+    return hex_colors
+
+def desaturate_matrix(colors, amount=0.5):
+    L = np.array([[0.299, 0.587, 0.114]] * 3)   # rank-1 luminance matrix
+    M = (1 - amount) * np.eye(3) + amount * L
+    return colors @ M.T
+'''
 def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_layers, sigma_color=0.03, end_weight=0.2, period=None):
     Y = np.array([[1.0], [0.0]])
     row, col = center
@@ -108,6 +141,7 @@ def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_
         hex_colors[select] = select_normal_color(select, color_i, np.ones(3)*sigma_color)
  
     return hex_colors
+'''
 '''
 def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_layers, sigma_color=0.03, end_weight=0.2):
     Y = np.array([[1.0], [0.0]])

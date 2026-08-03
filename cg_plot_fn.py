@@ -263,3 +263,44 @@ def random_walks(start, n_walks, hex_rc_arr, down_weight=1, left_weight=1, right
     rng = np.random.default_rng(seed)
     start_row_i, start_col_i = start
     return [_single_walk(start_row_i, start_col_i) for _ in range(n_walks)]
+
+def hex_center_pixel(row, col, detail_info):
+    """Same formula make_hex_scene uses internally to place a hex center."""
+    IMG_W, IMG_H, HEX_R, dx_hex_center, dy_hex_center = detail_info
+    apothem = np.sqrt(3)/2 * HEX_R
+    row, col = np.asarray(row), np.asarray(col)
+    x = col * dx_hex_center + np.where(row % 2 == 1, apothem, 0.0)
+    y = row * dy_hex_center
+    return x, y
+ 
+def pixel_to_nearest_hex(x, y, detail_info):
+    """Inverse of hex_center_pixel -- snap a pixel point to its nearest hex (row, col)."""
+    IMG_W, IMG_H, HEX_R, dx_hex_center, dy_hex_center = detail_info
+    apothem = np.sqrt(3)/2 * HEX_R
+    row = np.round(y / dy_hex_center).astype(int)
+    stagger = np.where(row % 2 == 1, apothem, 0.0)
+    col = np.round((x - stagger) / dx_hex_center).astype(int)
+    return row, col
+ 
+def rotate_hex_shape(coords, pivot_rc, angle_rad, detail_info):
+    """Rotate a set of hex (row, col) coordinates about a pivot hex cell by
+    an arbitrary angle. Offset hex coords don't rotate cleanly on their own
+    (only at 60-deg multiples), so this goes through pixel space: convert
+    each cell to its true pixel center, rotate about the pivot's pixel
+    center, then snap back to the nearest hex cell.
+    """
+    coords = np.asarray(coords).reshape(-1, 2)
+    if coords.shape[0] == 0:
+        return []
+    rows, cols = coords[:, 0], coords[:, 1]
+    x, y = hex_center_pixel(rows, cols, detail_info)
+ 
+    px0, py0 = hex_center_pixel(pivot_rc[0], pivot_rc[1], detail_info)
+    dx, dy = x - px0, y - py0
+ 
+    c, s = np.cos(angle_rad), np.sin(angle_rad)
+    x_rot = px0 + c*dx - s*dy
+    y_rot = py0 + s*dx + c*dy
+ 
+    row_rot, col_rot = pixel_to_nearest_hex(x_rot, y_rot, detail_info)
+    return list(dict.fromkeys(zip(row_rot.tolist(), col_rot.tolist())))   # dedupe, keep order
