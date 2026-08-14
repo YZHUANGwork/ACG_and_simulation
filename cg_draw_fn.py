@@ -71,7 +71,7 @@ def draw_trapezoid(start_row, start_left_col, start_right_col, end_row, slope_le
     if slope_left == 'inf':
         #line_info = (start_row, (start_left_col, start_left_col)) 
         left_LINE  = verticle_line(start_row, start_left_col, end_row)
-        print(left_LINE)
+        
     if slope_right == '0.5':
         right_LINE = draw_slope_0p5_diagonal(start_row, start_right_col, end_row, 
                                           left_down=right_line_dir[0], 
@@ -96,12 +96,12 @@ def draw_trapezoid(start_row, start_left_col, start_right_col, end_row, slope_le
     if slope_right == 'inf':
         #line_info = (start_row, (start_right_col, start_right_col)) 
         right_LINE  = verticle_line(start_row, start_right_col, end_row)
-        print(right_LINE)
+        
     
     
     end_left_vertex  = (end_row, min(c for r, c in left_LINE if r ==end_row))                      
     end_right_vertex = (end_row, max(c for r, c in right_LINE if r ==end_row))    
-    print('end_left_vertex=',end_left_vertex, 'end_right_vertex = ',end_right_vertex)
+    #print('end_left_vertex=',end_left_vertex, 'end_right_vertex = ',end_right_vertex)
     
     
     sorted_left_LINE  = sorted(left_LINE,  key=lambda x: x[0])
@@ -126,15 +126,22 @@ def horizontal_lines(lines_info):
         result.extend((row, col) for col in range(col_start, col_end + 1))
     return result
 
-def verticle_line(start_row, start_col, end_row):
+def verticle_line(start_row, start_col, end_row, bend = 'left'):
     result = [(start_row, start_col)]
     step = 1 if end_row > start_row else -1
     for row in range(start_row, end_row, step):
-        if start_row % 2 == 1:
-            next_col = start_col
-        else:
-            next_col = start_col-1 if row % 2 == 0 else start_col
+        if bend == 'left':
+            if start_row % 2 == 1:
+                next_col = start_col
+            else:
+                next_col = start_col-1 if row % 2 == 0 else start_col
+        elif bend == 'right':
+            if start_row % 2 == 1:
+                next_col = start_col + 1 if row % 2 == 1 else start_col
+            else:
+                next_col = start_col
         result.append((row + step, next_col))
+    
     return result
 
             
@@ -235,3 +242,44 @@ def draw_slope_0p5_diagonal(start_row, start_col, end_row, left_down=True, right
             if right_up:   result.append((row, start_col + (math.ceil(rows_away/2) if is_odd else math.floor(rows_away/2))))
     return result
     
+def draw_body(start_center_row, start_center_col, n = 2, start = 'head'):
+    center_col = start_center_col
+    print(start)
+    if start == 'head':
+        
+        head_center_row = start_center_row 
+        body_center_row = head_center_row+n+1+n+1
+        thigh_center_row = body_center_row+n+1+n+1
+    elif start == 'thigh':
+        thigh_center_row = start_center_row
+        body_center_row = thigh_center_row-(n+1+n+1)
+        head_center_row = body_center_row -(n+1+n+1)
+    elif start == 'body':
+        body_center_row = start_center_row
+        head_center_row = body_center_row -(n+1+n+1)
+        thigh_center_row = body_center_row+n+1+n+1
+        
+    head_center_row = start_center_row 
+    body_center_row = head_center_row+n+1+n+1
+    thigh_center_row = body_center_row+n+1+n+1
+    
+    head = cg.hex_neighbours_n(head_center_row,center_col, n=n, keep_origin = True)
+    head_bottom_r = head_center_row+n
+    head_bottom_line_info = (max(r for r, c in head), 
+                             (min(c for r, c in head if r ==head_bottom_r), max(c for r, c in head if r ==head_bottom_r))
+                            )
+    neck = draw_block(head_bottom_line_info, head_bottom_line_info[0]+1)#+n-1)
+    neck_valid = [x for x in neck if x not in head]
+    
+    
+    body = cg.hex_neighbours_n(body_center_row,center_col, n=n, keep_origin = True)    
+    body_bottom_r = body_center_row+n
+    body_bottom_line_info = (max(r for r, c in body), 
+                             (min(c for r, c in body if r ==body_bottom_r), max(c for r, c in body if r ==body_bottom_r))
+                            )
+    pelvis = draw_block(body_bottom_line_info, body_bottom_line_info[0]+1)
+    pelvis_valid = [x for x in pelvis if x not in body]
+    
+    thigh = cg.hex_neighbours_n(thigh_center_row,center_col, n=n, keep_origin = True)    
+    
+    return head, neck_valid, body, pelvis_valid, thigh, [center_col, head_center_row, body_center_row, thigh_center_row]
