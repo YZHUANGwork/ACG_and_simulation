@@ -304,3 +304,32 @@ def rotate_hex_shape(coords, pivot_rc, angle_rad, detail_info):
  
     row_rot, col_rot = pixel_to_nearest_hex(x_rot, y_rot, detail_info)
     return list(dict.fromkeys(zip(row_rot.tolist(), col_rot.tolist())))   # dedupe, keep order
+
+
+
+def foreshorten_hex_shape(coords, pivot_rc, scale, detail_info):
+    """Side-view foreshortening: shrink only the horizontal (column) extent
+    toward the pivot's column, in pixel space, then snap back to the
+    nearest column at each hex's OWN unchanged row. Row/vertical position
+    is never touched -- scale=1 keeps columns unmoved; scale->0 collapses
+    every column onto the pivot's column (a single "dot" hex).
+    Distinct from rotate_hex_shape, which rotates instead of scaling --
+    the shrink here comes from fewer distinct hex cells being covered
+    after nearby scaled points collapse onto the same column.
+    """
+    coords = np.asarray(coords).reshape(-1, 2)
+    if coords.shape[0] == 0:
+        return []
+    rows, cols = coords[:, 0], coords[:, 1]
+    x, _y = hex_center_pixel(rows, cols, detail_info)
+    px0, _py0 = hex_center_pixel(pivot_rc[0], pivot_rc[1], detail_info)
+    x_scaled = px0 + scale * (x - px0)
+ 
+    IMG_W, IMG_H, HEX_R, dx_hex_center, dy_hex_center = detail_info
+    apothem = np.sqrt(3) / 2 * HEX_R
+    stagger = np.where(rows % 2 == 1, apothem, 0.0)
+    col_new = np.round((x_scaled - stagger) / dx_hex_center).astype(int)
+ 
+    rows_int = rows.astype(int)
+    return list(dict.fromkeys(zip(rows_int.tolist(), col_new.tolist())))
+
