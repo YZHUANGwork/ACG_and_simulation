@@ -2,8 +2,12 @@
 liquid jet: cross-section exit -> coherent streamline -> Rayleigh-Plateau
 breakup -> ballistic droplet spray.
 
-Stage 1 - Bernoulli (cross-section exit velocity):
-continuity equation 
+Stage 1 - 
+Bernoulli (cross-section exit velocity):
+v0 = Cd*sqrt(2*(P_pump-P_atm)/rho) energy conservation gives exit speed.
+
+continuity equation (Q=A*v) flow_rate
+ 
 
 Stage 2 - 
 the length where stream line will break up into drops, NOT SURE ABOUT THE FORMULA AND VALUE
