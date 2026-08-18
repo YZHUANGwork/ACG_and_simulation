@@ -143,7 +143,7 @@ trajectory of liquid jet, breakup length, discrete droplets [RESULT](https://git
 
 ```
 alicemadnessreturn_animation.py        # entry point — builds this video
-└── TRAJECTORY_liquidjet.py # continuity equation, breakup length(paper not accessible, unsure about the exact formula, line 121-143)
+└── TRAJECTORY_liquidjet.py # Bernoulli's equation, continuity equation, breakup length(paper not accessible, unsure about the exact formula, line 121-143)
 ```
 
 </details>
