@@ -159,7 +159,7 @@ trajectory of electron in magnetic field [RESULT](https://github.com/YZHUANGwork
 
 ```
 Railgun_animation.py        # entry point — builds this video
-└── TRAJECTORY_vcrossB.py # lorentz, cyclotron, dipole field
+└── TRAJECTORY_vcrossB.py # lorentz, dipole field
 ```
 
 </details>
