@@ -352,119 +352,14 @@ for dict_ in char_dict_.values():
                                         hex_rc_arr, hex_colors, sort = 'col', sigma_color = sigma_color, end_weight= 0.01) 
 
 
-      
 
-def draw_char(start_center_row, start_center_col, n_head, start = 'head', view = 'up'):
-    head, neck, body, pelvis, thigh, details = cgd.draw_body(start_center_row, start_center_col, n = n_head, start = start)
-    [center_col, head_center_row, body_center_row, thigh_center_row]  = details
-    
-    
-    if view == 'up':
-        body_top_r = min(r for r, c in body)
-        body_bottom_r = max(r for r, c in body)
-        remove_head = [(head_center_row, min(c for r,c in head if r ==head_center_row)), 
-                       (head_center_row, max(c for r,c in head if r ==head_center_row)), ]
-        add_hair = cgd.verticle_line(head_center_row, min(c for r,c in head if r ==head_center_row),head_center_row+3, bend = 'right'
-                                    )+cgd.verticle_line(head_center_row, max(c for r,c in head if r ==head_center_row),head_center_row+3, 
-                                                        bend = 'left'
-                                    )
-        hair = [(r,c) for r,c in head+add_hair if (r,c) not in remove_head]
-        face = cgd.draw_trapezoid(head_center_row+1, 
-                                  min(c for r,c in hair if r ==head_center_row+1)+1, 
-                                  max(c for r,c in hair if r ==head_center_row+1)-1, head_center_row+n_head, 
-                                      slope_left = '0.5', slope_right = '0.5', direction = 'rl',
-                          bend_left = 'left', bend_right = 'right')[-2]
-
-
-        shoulder_extensions = math.ceil(n_head/2)
-
-        left_shoulders, right_shoulders = [], []
-        for shoulder_extension in range(shoulder_extensions):
-            left_shoulders+=cgd.draw_slope_0p5_diagonal(body_top_r, min(c for r, c in body if r ==body_top_r)-shoulder_extension-1, 
-                                                 body_center_row-shoulder_extension, 
-                                                left_down=True, right_down=False, left_up=False, right_up=False)
-            right_shoulders+=cgd.draw_slope_0p5_diagonal(body_top_r, max(c for r, c in body if r ==body_top_r)+shoulder_extension+1, 
-                                                  body_center_row-shoulder_extension, 
-                                                 left_down=False, right_down=True , left_up= False, right_up=False )
-        hair_color = [1,1,1]
-        char = face+neck+body+left_shoulders+right_shoulders
-    elif view == 'down':
-        head = thigh
-        neck =  pelvis
-        head_center_row = thigh_center_row
-        
-        body_top_r = max(r for r, c in body)
-        body_bottom_r = min(r for r, c in body)
-        remove_head = [(head_center_row, min(c for r,c in head if r ==head_center_row)), 
-                       (head_center_row, max(c for r,c in head if r ==head_center_row)), ]
-        add_hair = cgd.verticle_line(head_center_row, min(c for r,c in head if r ==head_center_row),head_center_row+3, bend = 'right'
-                                    )+cgd.verticle_line(head_center_row, max(c for r,c in head if r ==head_center_row),head_center_row+3, 
-                                                        bend = 'left'
-                                    )
-        hair = [(r,c) for r,c in head if (r,c) not in remove_head]
-        
-        face_part1 = cgd.draw_trapezoid(head_center_row-n_head , 
-                                  min(c for r,c in hair if r == head_center_row-n_head)+1, 
-                                  max(c for r,c in hair if r == head_center_row-n_head)-1, head_center_row-1, 
-                                      slope_left = '0.5', slope_right = '0.5', direction = 'lr',
-                          bend_left = 'left', bend_right = 'right')[-2]
-        face_part2 = cgd.draw_block((max(r for r, c in face_part1), 
-                                     ( min(c for r,c in face_part1 if r == max(r for r, c in face_part1)),
-                                      max(c for r,c in face_part1 if r == max(r for r, c in face_part1)))), max(r for r, c in head)-1)
-        face = face_part1+face_part2
-        shoulder_extensions = math.ceil(n_head/2)
-
-        left_shoulders, right_shoulders = [], []
-        for shoulder_extension in range(shoulder_extensions):
-            left_shoulders+=cgd.draw_slope_0p5_diagonal(body_top_r, min(c for r, c in body if r ==body_top_r)-shoulder_extension-1, 
-                                                 body_center_row-shoulder_extension, 
-                                                left_down=False, right_down=False, left_up=True , right_up=False)
-            right_shoulders+=cgd.draw_slope_0p5_diagonal(body_top_r, max(c for r, c in body if r ==body_top_r)+shoulder_extension+1, 
-                                                  body_center_row-shoulder_extension, 
-                                                 left_down=False, right_down= False, left_up= False, right_up= True )
-        
-        hair_color = [0,0,0]
-        char = neck+body+left_shoulders+right_shoulders+face
-    return {
-            'g': [hair, [hair_color]],
-           'a': [char, [[0.7,0.7,0.7]]],
-      
-           
-            }
-
-hex_colors[[True]*len(hex_rc_arr)] = [1,1,1] 
-bkgd = cgd.draw_trapezoid(0, 24, 34, 22,  slope_left = '0.5', slope_right = 'inf', direction = 'lr',
-                      bend_left = 'left', bend_right = 'right')[-2]
-select_bkgd= cg.select_mask(bkgd,hex_rc_arr)
-hex_colors[select_bkgd] = [0,0,0]
-
-
-n_head = 3
-head_center_up = (15, 27)
-head_center_opposite = (7, 7)
-char_dict_ = {'a': draw_char(head_center_up[0], head_center_up[1], n_head, start = 'head', view = 'up'),
-              'b': draw_char(head_center_opposite[0], head_center_opposite[1], n_head, start = 'thigh', view = 'down'),
-             }
-for dict_ in char_dict_.values(): 
-
-    for key in dict_.keys():
-        part  = dict_.get(key)[0]
-        colors = dict_.get(key)[1] 
-        if len(colors) == 1:
-
-            select_part= cg.select_mask(part,hex_rc_arr)
-            hex_colors[select_part] = cgc.select_normal_color(select_part, colors[0], np.ones(3)*0.) 
-        else:
-            hex_colors = cgc.color_row_gradient(part, 
-                                        colors[0],colors[1],
-                                        hex_rc_arr, hex_colors, sort = 'col', sigma_color = sigma_color, end_weight= 0.01)  
 pc = PatchCollection(patches, facecolor=hex_colors,
                         edgecolor='#bbba90', linewidth=0.4, zorder=z_order_max-1)
 ax.add_collection(pc)
 pc.set_facecolor(hex_colors)
-OUTPUT_FOLDER = 'cg'
+OUTPUT_FOLDER = 'RESULT'
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-OUTPUT_FILE   = os.path.join(OUTPUT_FOLDER, 'Uzi_scene_temp.'+DOC)
+OUTPUT_FILE   = os.path.join(OUTPUT_FOLDER, 'Uzi_scene.'+DOC)
 
 plt.savefig(OUTPUT_FILE, dpi=DPI, bbox_inches='tight')
 print('saved')
