@@ -1,5 +1,3 @@
-
-
 ## ACG and simulation
 
 ACG-related simulations.
@@ -193,6 +191,7 @@ fatalframe_animation.py        # entry point — builds this video
 ```
 
 </details>
+<img width="1300" height="740" alt="fatalframe_scene" src="https://github.com/user-attachments/assets/d6d595dd-3502-4536-9d9b-f1ddcabc9118" />
 
 https://github.com/user-attachments/assets/da0eb28a-0f58-4130-b343-8a84d9acc215
 
