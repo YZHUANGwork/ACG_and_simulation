@@ -186,7 +186,7 @@ diagram of time-series, periodogram and recurrence plot, turned into patterns an
 <summary>Repository structure</summary>
 
 ```
-fatalframe_animation.py        # entry point — builds this video
+fatalframe_animation.py , fatalframe_scene_plot.py       # entry point — builds this video and image
 └── DIAGRAM_periodigram_timeseries.py # generate diagram of time series, periodogram and recurrence plot
 ```
 
