@@ -17,7 +17,7 @@ import cg_draw_fn as cgd
 import cg_color_fn as cgc
 import cg_draw_figure as cgf
 
-import SOLUTION_free_infwell as SOLN
+import SOLUTION_Schrodinger as SOLN
 import HF_scene_plot as HF_SCENE
 rng = np.random.default_rng(42)
 
