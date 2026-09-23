@@ -134,9 +134,30 @@ def world_metres_to_pixel(x, y, IMG_W, IMG_H, canvas_physical_x_range=None, canv
     """
     x_min, x_max = canvas_physical_x_range if canvas_physical_x_range is not None else (x.min(), x.max())
     y_min, y_max = canvas_physical_y_range if canvas_physical_y_range is not None else (y.min(), y.max())
-    px_x = (x - x_min) / (x_max - x_min) * IMG_W
-    px_y = (1.0 - (y - y_min) / (y_max - y_min)) * IMG_H
+    
+    #EPS = 1e-9   # floor so a zero-range axis (all data at one value) can't cause 0/0
+    #x_range = max(x_max - x_min, EPS)
+    #y_range = max(y_max - y_min, EPS)
+ 
+    #px_x = (x - x_min) / x_range * IMG_W
+    #px_y = (1.0 - (y - y_min) / y_range) * IMG_H
+    
+    
+    REL_EPS = 1e-9   # floor RELATIVE to the coordinate scale -- a fixed absolute
+                      # epsilon is meaningless for large-scale data (e.g. km) and
+                      # oversized for tiny-scale data (e.g. nm); this scales with
+                      # the actual x/y magnitudes instead
+    x_scale = max(abs(x_min), abs(x_max), 1.0)
+    y_scale = max(abs(y_min), abs(y_max), 1.0)
+    x_range = max(x_max - x_min, REL_EPS * x_scale)
+    y_range = max(y_max - y_min, REL_EPS * y_scale)
+ 
+    px_x = (x - x_min) / x_range * IMG_W
+    px_y = (1.0 - (y - y_min) / y_range) * IMG_H
+    
     return px_x, px_y
+
+
 '''
 def world_metres_to_hex_index(x,y, detail_info):
     """
@@ -206,6 +227,30 @@ def world_metres_to_hex_index(x, y, detail_info, canvas_physical_x_range=None, c
     return list(zip(hex_row, hex_col))#[(row1,col1), (row2,col2), (row3,col3), ...]
 
 
+def fn2grid(X, Y, DOMAIN_W_SCALE ,DOMAIN_H_SCALE, PIVOT_ROW, PIVOT_COL, PIVOT_ROW_X, PIVOT_COL_Y, detail_info, square = False):
+    IMG_W_SCENE, IMG_H_SCENE, HEX_R, dx_hex_center, dy_hex_center = detail_info
+
+    DOMAIN_W = X.max() - X.min()
+    DOMAIN_H = Y.max() - Y.min()
+    CANVAS_PHYSICAL_W = DOMAIN_W*DOMAIN_W_SCALE
+    CANVAS_PHYSICAL_H = DOMAIN_H*DOMAIN_H_SCALE
+    
+    if square:
+        CANVAS_PHYSICAL_H = DOMAIN_H * DOMAIN_H_SCALE
+        CANVAS_PHYSICAL_W = CANVAS_PHYSICAL_H * (IMG_W_SCENE / IMG_H_SCENE)
+    
+    canvas_physical_x_range = (0, CANVAS_PHYSICAL_W)
+    canvas_physical_y_range = (0, CANVAS_PHYSICAL_H)
+ 
+    px0, py0 = hex_center_pixel(PIVOT_ROW, PIVOT_COL, detail_info)
+    OFFSET_X = px0 * CANVAS_PHYSICAL_W / IMG_W_SCENE - PIVOT_ROW_X
+    OFFSET_Y = CANVAS_PHYSICAL_H * (1.0 - py0 / IMG_H_SCENE) - PIVOT_COL_Y
+    grid_hex_rc = world_metres_to_hex_index(
+        X + OFFSET_X, Y + OFFSET_Y, detail_info,
+        canvas_physical_x_range=canvas_physical_x_range,
+        canvas_physical_y_range=canvas_physical_y_range,
+    )
+    return grid_hex_rc
 
 def steps_to_Q(n_steps, end_weight=0.05):
     # after n recursive steps with fixed Q, color fraction remaining = sigmoid(Q)^n
