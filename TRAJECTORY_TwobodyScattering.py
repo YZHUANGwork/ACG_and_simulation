@@ -9,17 +9,7 @@ vel_UNIT = len_UNIT / time_UNIT
 acc_UNIT = vel_UNIT / time_UNIT
 
 class CollisionKineticEnergyBase:
-    """
-    Given masses and initial/final velocity vectors, computes kinetic
-    energy before and after and classifies elastic vs inelastic. This is
-    the only place that decides elastic/inelastic -- momentum conservation
-    alone never guarantees KE is conserved, so it has to be checked here,
-    not assumed from whatever coefficient of restitution produced v_f.
-
-        KE = 1/2 m1 |v1|^2 + 1/2 m2 |v2|^2
-        elastic  <=>  KE_final == KE_initial
-    """
-
+    
     def __init__(self, m1, m2, v_i_1, v_i_2, v_f_1, v_f_2, rtol=1e-9):
         self.m1 = m1.to(mass_UNIT)
         self.m2 = m2.to(mass_UNIT)
@@ -39,28 +29,16 @@ class CollisionKineticEnergyBase:
 
 class TwoBodyCollision:
     """
-    The INPUT is the contact point itself, r_contact -- the single position
-    both boxes share at the instant they touch (t=0, by convention) -- and
-    v_i_1, v_i_2, their velocities at that instant. This is deliberate:
-    giving two separate starting positions (r1_0, r2_0) far apart and then
-    solving for when/whether they meet is fragile -- for point particles,
-    that only has a solution when v_i_1-v_i_2 happens to point exactly
-    along r2_0-r1_0, and silently fails (or gives a fictitious "contact"
-    point where the boxes are NOT actually together) otherwise. Starting
-    from the contact point instead makes every input a real collision, by
-    construction -- there is nothing to solve for and nothing that can fail.
-
-    lab_frame() and cm_frame() each return that frame's parameters --
-    (r_contact, v_i_1, v_i_2, v_f_1, v_f_2) -- solving v_f_1, v_f_2 from
-    that frame's own v_i_1, v_i_2 (two equations, two unknowns):
+    r_contact, v_i_1, v_i_2 : lab frame input param 
+    
+    solving v_f_1, v_f_2 using 
+    
         momentum:     m1*v_f_1 + m2*v_f_2 = m1*v_i_1 + m2*v_i_2
         restitution:    -v_f_1 +    v_f_2 = e*(v_i_1 - v_i_2)
-    solve_trajectory(params, t) then traces the BEFORE-collision path
-    backward from r_contact using v_i (for t<0), and the AFTER-collision
-    path forward from r_contact using v_f (for t>=0) -- both bodies are
-    guaranteed to be at r_contact at t=0, since that's the one point both
-    formulas share.
-    Setting all y-components to 0 reduces this exactly to 1D.
+    solve_trajectory(params, t): BEFORE-collision path -- backward from r_contact using v_i (for t<0)
+                                 AFTER-collision       --forward from r_contact using v_f (for t>=0)
+    
+    shared position:  r_contact at t=0
     """
 
     def __init__(self, m1=1*u.kg, m2=1*u.kg, r_contact=(0, 0)*u.m,
@@ -109,14 +87,7 @@ class TwoBodyCollision:
         return r_contact_com, v_i_1_com, v_i_2_com, v_f_1_com, v_f_2_com
 
 def eom(r_i, v_i, t, a=None):
-    """
-    THE equation of motion: r(t) = r_i + v_i*t + 1/2*a*t^2. Generic --
-    doesn't know about masses, restitution, or which body it's for.
- 
-    a=None (default) means zero acceleration -- a straight line, r_i + v_i*t.
-    Pass a to get constant-acceleration motion instead, e.g. a=const.g0*(0,-1)
-    for "collide in the air, then drop" (gravity pulling along -y).
-    """
+    
     if a is None:
         a = (0, 0, 0) * acc_UNIT
     return (r_i + v_i*t + 0.5*a.to(acc_UNIT)*t**2).to(len_UNIT)
@@ -133,16 +104,10 @@ def _before_after_contact(v_i, v_f, r_contact, t, before, a=None):
  
 def solve_trajectory(params, t, a=None):
     """
-    Turns a frame's parameters into a trajectory. params is whatever
-    lab_frame() or cm_frame() returned -- solve_trajectory doesn't know or
-    care which frame it came from, or what class produced it. t=0 is the
-    moment of contact, by convention -- pass negative t for before,
-    positive t for after.
- 
-    Deliberately a plain function, not a method: turning (r_contact, v_i,
-    v_f) into a position-vs-time curve doesn't need masses or a restitution
-    coefficient -- it's pure kinematics, decoupled from the collision
-    physics that produced v_f in the first place.
+    Turns r_contact, v_i_1, v_i_2, v_f_1, v_f_2 = params  into a trajectory. 
+    
+    t0 , r_contact ,
+   
     """
     r_contact, v_i_1, v_i_2, v_f_1, v_f_2 = params
     t_col = t[:, None]   # one (x,y) pair per requested time, see eom
