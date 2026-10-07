@@ -107,7 +107,69 @@ def color_row_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, sort = 'ro
     
     return hex_colors
 
-
+def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_layers,
+                        sigma_color=0.03, end_weight=0.2, period=None, mode='sigmoid',
+                        start_n=0, end_n=None):
+    """
+    mode='sigmoid' (default, unchanged behavior) / mode='linear' -- same two
+    modes as color_row_gradient, applied per hex ring instead of per row.
+ 
+    start_n / end_n: which rings to include, instead of always starting at
+    the center (n=0) and running to n_layers. end_n defaults to n_layers.
+    e.g. start_n=2, end_n=5 skips the center and ring 1 entirely, and
+    gradients only across rings 2-5.
+    """
+    row, col = center
+    if end_n is None:
+        end_n = n_layers
+ 
+    frontiers = []
+    for n in range(start_n, end_n + 1):
+        if n == 0:
+            ring = [center] if center in arr else []
+        else:
+            _, frontier = cg.hex_neighbours_n(row, col, n=n, return_frontier=True)
+            ring = [h for h in frontier if h in arr]
+        if not ring and n > start_n:
+            break
+        frontiers.append(ring)
+ 
+    n_steps = len(frontiers)
+ 
+    if mode == 'sigmoid':
+        Y = np.array([[1.0], [0.0]])
+        X = cg.steps_to_Q(n_steps, end_weight=end_weight)
+    elif mode != 'linear':
+        raise ValueError(f"mode must be 'sigmoid' or 'linear', got {mode!r}")
+ 
+    target = color_f
+    color_A, color_B = color_i, color_f   # fixed originals (linear mode only), same pattern as color_row_gradient
+    leg_start = 0
+    leg_len = period if period else n_steps
+    leg_idx = 0
+ 
+    for step, frontier in enumerate(frontiers):
+        if period and step > 0 and step % period == 0:
+            color_i, target = target, color_i   # sigmoid mode: unchanged swap behavior
+            leg_start = step
+            leg_len = min(period, n_steps - step)
+            leg_idx += 1
+ 
+        select = [(r,c) in frontier for r, c in hex_rc_arr]
+ 
+        if mode == 'sigmoid':
+            V_input = np.array([color_i, target])
+            Color_output, _ = EXP.expected_value(X, Y, V_input)
+            color_i = Color_output[0]
+        else:   # linear -- always interpolate from the correct fixed endpoint, by leg parity
+            color_start, color_end = (color_A, color_B) if leg_idx % 2 == 0 else (color_B, color_A)
+            t = (step - leg_start) / max(leg_len - 1, 1)
+            color_i = (1 - t) * np.array(color_start) + t * np.array(color_end)
+ 
+        hex_colors[select] = select_normal_color(select, color_i, np.ones(3)*sigma_color)
+ 
+    return hex_colors
+'''
 def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_layers, sigma_color=0.03, end_weight=0.2, period=None):
     Y = np.array([[1.0], [0.0]])
     row, col = center
@@ -136,6 +198,7 @@ def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_
         hex_colors[select] = select_normal_color(select, color_i, np.ones(3)*sigma_color)
 
     return hex_colors
+'''
 def gradient_sequence_colors(n_steps, color_i, color_f, end_weight=0.2, period=None, mode='sigmoid'):
     """
 
@@ -179,6 +242,25 @@ def desaturate_matrix(colors, amount=0.5):
     L = np.array([[0.299, 0.587, 0.114]] * 3)   # rank-1 luminance matrix
     M = (1 - amount) * np.eye(3) + amount * L
     return colors @ M.T
+
+def stripe_color_at(col_i, STRIPE_WIDTH=1, STRIPE_PALETTE=[np.array([0.9, 0.9, 0.9]), hex_to_rgb("#3b6632")]):
+    
+    stripe_idx = (col_i // STRIPE_WIDTH) % len(STRIPE_PALETTE)
+    return np.array(STRIPE_PALETTE[stripe_idx])
+
+def color_stripe(hex_rc_arr, STRIPE_WIDTH = 1 ,STRIPE_PALETTE = [np.array([0.9, 0.9, 0.9]),hex_to_rgb("#3b6632"),]):
+    #STRIPE_WIDTH = 1            
+    #STRIPE_PALETTE = [
+    #    np.array([0.9, 0.9, 0.9]),   
+    #    cgc.hex_to_rgb("#3b6632"),  
+    #]
+
+    stripe_target_colors = np.zeros((len(hex_rc_arr), 3))
+    for i, (row_i, col_i) in enumerate(hex_rc_arr):
+        stripe_idx = (col_i // STRIPE_WIDTH) % len(STRIPE_PALETTE)
+        stripe_target_colors[i] = STRIPE_PALETTE[stripe_idx]
+    return stripe_target_colors
+
 '''
 def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_layers, sigma_color=0.03, end_weight=0.2, period=None):
     Y = np.array([[1.0], [0.0]])

@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MplPolygon
 from matplotlib.collections import PatchCollection
 
+import cg_color_fn as cgc
 
 def make_hex_scene(IMG_W=1280, IMG_H=720, HEX_R=22, DPI=100, hex_index = True, z_order_max = 5):
     HEX_apothem = np.sqrt(3)/2 * HEX_R
@@ -226,12 +227,13 @@ def world_metres_to_hex_index(x, y, detail_info, canvas_physical_x_range=None, c
     
     return list(zip(hex_row, hex_col))#[(row1,col1), (row2,col2), (row3,col3), ...]
 
-
-def fn2grid(X, Y, DOMAIN_W_SCALE ,DOMAIN_H_SCALE, PIVOT_ROW, PIVOT_COL, PIVOT_ROW_X, PIVOT_COL_Y, detail_info, square = False):
+'''
+def fn2grid(X, Y, DOMAIN_W_SCALE ,DOMAIN_H_SCALE, PIVOT_ROW, PIVOT_COL, PIVOT_ROW_X, PIVOT_COL_Y, detail_info, 
+            square = False, EPS_DOMAIN = 1e-6):
     IMG_W_SCENE, IMG_H_SCENE, HEX_R, dx_hex_center, dy_hex_center = detail_info
 
-    DOMAIN_W = X.max() - X.min()
-    DOMAIN_H = Y.max() - Y.min()
+    DOMAIN_W = max(X.max() - X.min(), EPS_DOMAIN)#X.max() - X.min()
+    DOMAIN_H = max(Y.max() - Y.min(), EPS_DOMAIN)#Y.max() - Y.min()
     CANVAS_PHYSICAL_W = DOMAIN_W*DOMAIN_W_SCALE
     CANVAS_PHYSICAL_H = DOMAIN_H*DOMAIN_H_SCALE
     
@@ -251,6 +253,151 @@ def fn2grid(X, Y, DOMAIN_W_SCALE ,DOMAIN_H_SCALE, PIVOT_ROW, PIVOT_COL, PIVOT_RO
         canvas_physical_y_range=canvas_physical_y_range,
     )
     return grid_hex_rc
+'''
+def fn2grid(X, Y, DOMAIN_W_SCALE ,DOMAIN_H_SCALE, PIVOT_ROW, PIVOT_COL, PIVOT_ROW_X, PIVOT_COL_Y, detail_info, 
+            square = False, EPS_DOMAIN = 1e-6, input_PHYSICAL_size = None, return_DOMAIN = False):
+    IMG_W_SCENE, IMG_H_SCENE, HEX_R, dx_hex_center, dy_hex_center = detail_info
+    if input_PHYSICAL_size !=None:
+        print('input_PHYSICAL_size')
+        CANVAS_PHYSICAL_W = input_PHYSICAL_size[0]
+        CANVAS_PHYSICAL_H =input_PHYSICAL_size[1]
+    else:
+        DOMAIN_W = max(X.max() - X.min(), EPS_DOMAIN)#X.max() - X.min()
+        DOMAIN_H = max(Y.max() - Y.min(), EPS_DOMAIN)#Y.max() - Y.min()
+        CANVAS_PHYSICAL_W = DOMAIN_W*DOMAIN_W_SCALE
+        CANVAS_PHYSICAL_H = DOMAIN_H*DOMAIN_H_SCALE
+
+        if square:
+            CANVAS_PHYSICAL_H = DOMAIN_H * DOMAIN_H_SCALE
+            CANVAS_PHYSICAL_W = CANVAS_PHYSICAL_H * (IMG_W_SCENE / IMG_H_SCENE)
+
+    canvas_physical_x_range = (0, CANVAS_PHYSICAL_W)
+    canvas_physical_y_range = (0, CANVAS_PHYSICAL_H)
+    
+    
+    px0, py0 = hex_center_pixel(PIVOT_ROW, PIVOT_COL, detail_info)
+    OFFSET_X = px0 * CANVAS_PHYSICAL_W / IMG_W_SCENE - PIVOT_ROW_X
+    OFFSET_Y = CANVAS_PHYSICAL_H * (1.0 - py0 / IMG_H_SCENE) - PIVOT_COL_Y
+    grid_hex_rc = world_metres_to_hex_index(
+        X + OFFSET_X, Y + OFFSET_Y, detail_info,
+        canvas_physical_x_range=canvas_physical_x_range,
+        canvas_physical_y_range=canvas_physical_y_range,
+    )
+    if return_DOMAIN:
+        return grid_hex_rc, DOMAIN_W, DOMAIN_H, CANVAS_PHYSICAL_W, CANVAS_PHYSICAL_H
+    else:
+        return grid_hex_rc
+
+
+def average_grid_to_hex_scene(grid_hex_rc, hex_rc_arr, values, base_hex_colors,
+                         colors, alpha, vmax=None, weight_by_value=True):
+    """Same idea as the animation version, minus the frame dimension:
+    bin every physical sample point into its hex cell, average the
+    `values` that land in each one, map that average through a
+    breakpoint color ramp, and blend over `base_hex_colors`.
+    `colors` is [(position, hex_color), ...], linearly interpolated.
+ 
+    weight_by_value=True  (original behavior): blend_weight = alpha * a,
+        so low values fade back toward base_hex_colors -- right for an
+        intensity overlay (e.g. temperature on a map: no signal = base
+        map shows through).
+    weight_by_value=False: blend_weight = alpha, constant -- right for
+        an opaque fill like a terrain colormap, where a LOW value
+        still means a fully-painted color (dark pine, not "no color").
+ 
+    Returns (hex_positions, blended_colors) -- apply with
+    hex_colors[hex_positions] = blended_colors.
+    """
+    rc_to_idx_ = {rc: i for i, rc in enumerate(hex_rc_arr)}
+    hex_idx_per_point = np.array([rc_to_idx_.get(rc, -1) for rc in grid_hex_rc])
+    valid = hex_idx_per_point >= 0
+    hex_idx_valid = hex_idx_per_point[valid]
+    vals_valid = np.asarray(values)[valid]
+ 
+    n_hex = len(hex_rc_arr)
+    counts = np.bincount(hex_idx_valid, minlength=n_hex)
+    sums = np.bincount(hex_idx_valid, weights=vals_valid, minlength=n_hex)
+    hex_positions = np.unique(hex_idx_valid)
+    avg_val = sums[hex_positions] / counts[hex_positions]
+ 
+    if vmax is None:
+        vmax = avg_val.max()
+    vmax = vmax if vmax > 0 else 1.0
+    a = np.clip(avg_val / vmax, 0.0, 1.0)
+ 
+    breakpoints = np.array([p for p, c in colors])
+    rgb_list = np.array([cgc.hex_to_rgb(c) for p, c in colors])
+    color = np.stack([np.interp(a, breakpoints, rgb_list[:, ch]) for ch in range(3)], axis=-1)
+ 
+    blend_weight = (alpha * a if weight_by_value else np.full_like(a, alpha))[:, None]
+    blended = (1 - blend_weight) * base_hex_colors[hex_positions] + blend_weight * color
+    return hex_positions, blended
+def average_grid_to_hex_animation(grid_hex_rc, hex_rc_arr, frames, base_hex_colors, colors, alpha, vmax=None):
+    """Precompute everything needed to animate a physical-grid quantity
+    (e.g. temperature) onto a hex grid as a blended color, for every frame.
+ 
+    `colors` is a plain list of (position, hex_color) pairs, e.g.
+    [(0.0, '#ffffff'), (0.8, '#aaddff'), (1.0, '#00e8ff')], linearly
+    interpolated at each pair's own position -- no colormap object needed.
+ 
+    Returns
+    -------
+    hex_positions       : the hex_rc_arr indices actually touched by grid_hex_rc
+    blended_all_frames  : shape (len(frames), len(hex_positions), 3) --
+                           used directly in update() as:
+                           current_hex_colors[hex_positions] = blended_all_frames[frame_idx]
+    """
+    rc_to_idx = {rc: i for i, rc in enumerate(hex_rc_arr)}
+ 
+    # which hex_rc_arr index each physical grid point belongs to (-1 if it's
+    # not one of the tracked hex cells), and how many physical points land
+    # on each hex cell (the averaging denominator, fixed for the whole
+    # animation since it doesn't depend on any single frame's data)
+    hex_idx_per_point = np.array([rc_to_idx.get(rc, -1) for rc in grid_hex_rc])
+    valid_point = hex_idx_per_point >= 0
+    hex_idx_valid = hex_idx_per_point[valid_point]
+ 
+    n_hex = len(hex_rc_arr)
+    point_counts_per_hex = np.bincount(hex_idx_valid, minlength=n_hex)
+    hex_positions = np.unique(hex_idx_valid)
+ 
+    # frames is known in full ahead of time, so the per-hex average value
+    # for EVERY frame can be precomputed here -- update() then just looks
+    # up a row, no work happens during playback
+    frames_arr = np.asarray(frames).reshape(len(frames), -1)   # flatten any extra spatial dims (e.g. 2D solves) to match grid_hex_rc's own flat length
+    agg = np.zeros((n_hex, len(hex_idx_valid)))   # agg[h, p] = 1 if point p belongs to hex h
+    agg[hex_idx_valid, np.arange(len(hex_idx_valid))] = 1
+    safe_counts = np.where(point_counts_per_hex == 0, 1, point_counts_per_hex)
+    avg_val_all_frames = (frames_arr[:, valid_point] @ agg.T) / safe_counts   # one matrix multiply, all frames at once
+ 
+    # color and the final blended result derive purely from avg_val_all_frames
+    # (already fully known) plus fixed constants -- precompute all the way
+    # through, for every frame. Clip is the only "normalization" needed since
+    # values are already physically bounded to [0,1] by construction (C0=1.0).
+    
+    
+    # scale by the data's own observed range BEFORE clipping -- raw values
+    # aren't assumed to already sit in [0,1] (e.g. a flame source with
+    # amplitude 6.0 would otherwise clip almost everything down near 0)
+    raw_vals = avg_val_all_frames[:, hex_positions]
+    if vmax is None:
+        vmax = raw_vals.max()
+    vmax = vmax if vmax > 0 else 1.0   # guard against an all-zero field
+    a_all_frames = np.clip(raw_vals / vmax, 0.0, 1.0)
+    
+ 
+    breakpoints = np.array([p for p, c in colors])
+    rgb_list = np.array([cgc.hex_to_rgb(c) for p, c in colors])
+    color_all_frames = np.stack([np.interp(a_all_frames, breakpoints, rgb_list[:, ch]) for ch in range(3)], axis=-1)
+ 
+    blend_weight_all_frames = (alpha * a_all_frames)[:, :, None]
+ 
+    blended_all_frames = (
+        (1 - blend_weight_all_frames) * base_hex_colors[hex_positions][None, :, :]
+        + blend_weight_all_frames * color_all_frames
+    )
+ 
+    return hex_positions, blended_all_frames
 
 def steps_to_Q(n_steps, end_weight=0.05):
     # after n recursive steps with fixed Q, color fraction remaining = sigmoid(Q)^n
