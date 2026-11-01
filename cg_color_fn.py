@@ -34,7 +34,75 @@ def select_uniform_color(select, rgb_start, rgb_end):
     ]).clip(0, 1)
     return colors
 
+def color_row_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, sort = 'row', sigma_color = 0.03, end_weight= 0.2, period=None, mode='sigmoid', pivot=None):
+    """
+    mode='sigmoid' (default, unchanged behavior): each step retains a constant
+        FRACTION (sigmoid(Q)) of the current color and blends the rest toward
+        the target -- an exponential-decay-shaped gradient, with Q solved so
+        `end_weight` fraction of the start color remains after n_steps.
+    mode='linear': straight-line interpolation instead -- equal-sized color
+        steps from color_i to color_f (or, within each period-length leg, if
+        `period` is set): color_at_step = (1-t)*start + t*end, t = i/(leg_length-1).
 
+    pivot=None (default, unchanged behavior): bands are plain rows (sort='row')
+        or plain columns (sort='col').
+    pivot='min' / 'max': bands are distance-from-edge instead -- for each row,
+        the row's own min (or max) col is its "edge"; every hex's band is
+        col - edge_col_of_its_row. Hexes in different rows land in the same
+        band when they're equally far from their row's edge, so the gradient
+        follows the shape's own boundary instead of running flat across rows.
+    """
+    if pivot:
+        if sort == 'col':                 # offset is a col distance -> edge found per row
+            edge = {}
+            for r, c in arr:
+                edge[r] = c if r not in edge else (min(edge[r], c) if pivot == 'min' else max(edge[r], c))
+            key = lambda r, c: abs(c - edge[r])
+        else:                              # sort == 'row': offset is a row distance -> edge found per column
+            edge = {}
+            for r, c in arr:
+                edge[c] = r if c not in edge else (min(edge[c], r) if pivot == 'min' else max(edge[c], r))
+            key = lambda r, c: abs(r - edge[c])
+    else:
+        key = (lambda r, c: r) if sort == 'row' else (lambda r, c: c)
+        
+    sorted_idc = sorted(set(key(r, c) for r, c in arr))
+    n_steps = len(sorted_idc)
+
+    if mode == 'sigmoid':
+        Y = np.array([[1.0], [0.0]])
+        X = cg.steps_to_Q(n_steps, end_weight=end_weight)
+    elif mode != 'linear':
+        raise ValueError(f"mode must be 'sigmoid' or 'linear', got {mode!r}")
+
+    target = color_f
+    color_A, color_B = color_i, color_f   # fixed originals (linear mode only) -- never mutated,
+                                           # so period-boundary reversal is exact, not drifted
+    leg_start = 0
+    leg_len = period if period else n_steps
+    leg_idx = 0
+
+    for step, i in enumerate(sorted_idc):
+        if period and step > 0 and step % period == 0:
+            color_i, target = target, color_i   # sigmoid mode: unchanged swap behavior
+            leg_start = step
+            leg_len = min(period, n_steps - step)
+            leg_idx += 1
+
+        select = [(r,c) in arr and key(r, c) == i for r, c in hex_rc_arr]
+
+        if mode == 'sigmoid':
+            V_input = np.array([color_i,target])
+            Color_output, _ = EXP.expected_value(X, Y, V_input)
+            color_i = Color_output[0]
+        else:   # linear -- always interpolate from the correct fixed endpoint, by leg parity
+            color_start, color_end = (color_A, color_B) if leg_idx % 2 == 0 else (color_B, color_A)
+            t = (step - leg_start) / max(leg_len - 1, 1)
+            color_i = (1 - t) * np.array(color_start) + t * np.array(color_end)
+    
+        hex_colors[select] = select_normal_color(select, color_i, np.ones(3)*sigma_color)   
+    
+    return hex_colors
 '''
 def color_row_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, sort = 'row', sigma_color = 0.03, end_weight= 0.2):
     Y = np.array([[1.0], [0.0]])
@@ -55,7 +123,7 @@ def color_row_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, sort = 'ro
     
     return hex_colors
 
-'''
+
  
 def color_row_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, sort = 'row', sigma_color = 0.03, end_weight= 0.2, period=None, mode='sigmoid'):
     """
@@ -106,7 +174,7 @@ def color_row_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, sort = 'ro
         hex_colors[select] = select_normal_color(select, color_i, np.ones(3)*sigma_color)   
     
     return hex_colors
-
+'''
 def color_hex_gradient(arr, color_i, color_f, hex_rc_arr, hex_colors, center, n_layers,
                         sigma_color=0.03, end_weight=0.2, period=None, mode='sigmoid',
                         start_n=0, end_n=None):
@@ -237,6 +305,13 @@ def gradient_sequence_colors(n_steps, color_i, color_f, end_weight=0.2, period=N
  
     return colors
 
+def keep_top_color(parts):
+    seen, out = set(), {}
+    for k in reversed(parts):
+        pts, colors = parts[k]
+        out[k] = [[p for p in pts if tuple(p) not in seen], colors]
+        seen.update(map(tuple, pts))
+    return dict(reversed(out.items()))
 
 def desaturate_matrix(colors, amount=0.5):
     L = np.array([[0.299, 0.587, 0.114]] * 3)   # rank-1 luminance matrix
