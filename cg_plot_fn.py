@@ -108,6 +108,21 @@ def hex_neighbours_n(row, col, n=1, keep_origin = True, return_frontier=False):
         return list(region), list(frontier)
     return list(region)
 
+
+def get_hex_corners(center_row, center_col, n_size):
+    shape = hex_neighbours_n(center_row,center_col, n=n_size, keep_origin = False, return_frontier=True
+              )[-1]          
+    return [(min(r for r,c in shape), min(c for r,c in shape if r==min(r for r,c in shape))),
+            (min(r for r,c in shape), max(c for r,c in shape if r==min(r for r,c in shape))),
+            
+            (center_row, max(c for r,c in shape if r==center_row)),
+            (center_row, min(c for r,c in shape if r==center_row)),
+            
+            (max(r for r,c in shape), min(c for r,c in shape if r==max(r for r,c in shape))),
+            (max(r for r,c in shape), max(c for r,c in shape if r==max(r for r,c in shape))),
+            
+           ]
+
 '''
 def world_metres_to_pixel(x,y, IMG_W, IMG_H):
     """
@@ -290,7 +305,7 @@ def fn2grid(X, Y, DOMAIN_W_SCALE ,DOMAIN_H_SCALE, PIVOT_ROW, PIVOT_COL, PIVOT_RO
 
 
 def average_grid_to_hex_scene(grid_hex_rc, hex_rc_arr, values, base_hex_colors,
-                         colors, alpha, vmax=None, weight_by_value=True):
+                         colors, alpha, vmin=None, vmax=None, weight_by_value=True):
     """Same idea as the animation version, minus the frame dimension:
     bin every physical sample point into its hex cell, average the
     `values` that land in each one, map that average through a
@@ -320,10 +335,13 @@ def average_grid_to_hex_scene(grid_hex_rc, hex_rc_arr, values, base_hex_colors,
     hex_positions = np.unique(hex_idx_valid)
     avg_val = sums[hex_positions] / counts[hex_positions]
  
+    if vmin is None:
+        vmin = avg_val.min()
     if vmax is None:
         vmax = avg_val.max()
-    vmax = vmax if vmax > 0 else 1.0
-    a = np.clip(avg_val / vmax, 0.0, 1.0)
+    span = vmax - vmin
+    span = span if span > 0 else 1.0
+    a = np.clip((avg_val - vmin) / span, 0.0, 1.0)
  
     breakpoints = np.array([p for p, c in colors])
     rgb_list = np.array([cgc.hex_to_rgb(c) for p, c in colors])
@@ -398,6 +416,8 @@ def average_grid_to_hex_animation(grid_hex_rc, hex_rc_arr, frames, base_hex_colo
     )
  
     return hex_positions, blended_all_frames
+
+
 
 def steps_to_Q(n_steps, end_weight=0.05):
     # after n recursive steps with fixed Q, color fraction remaining = sigmoid(Q)^n

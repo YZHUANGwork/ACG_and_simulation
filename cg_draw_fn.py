@@ -12,16 +12,20 @@ import cg_plot_fn as cg
 rng = np.random.default_rng(42)
 
 
-def draw_triangle(start_row, start_col,  end_row, slope_left = '0.5', slope_right = '0.5', direction = 'lr'):   
+def draw_triangle(start_row, start_col,  end_row, slope_left = '0.5', slope_right = '0.5', direction = 'lr', 
+                 bend_left = 'left', bend_right = 'right'):   
     left_LINE, right_LINE, start_LINE, end_LINE, entire_region, details = draw_trapezoid(start_row, start_col, start_col, end_row, 
                                                                                          slope_left = slope_left,
                                                                                         slope_right = slope_right,
-                                                                                        direction = direction)
+                                                                                        direction = direction,
+                                                                                        bend_left = bend_left,
+                                                                                        bend_right = bend_right)
     [(start_row, start_col), (start_row, start_col), end_left_vertex,  end_right_vertex] = details
     
     return left_LINE, right_LINE, end_LINE, entire_region, [(start_row, start_col), end_left_vertex,  end_right_vertex]
 
-def draw_trapezoid(start_row, start_left_col, start_right_col, end_row, slope_left = '0.5', slope_right = '0.5', direction = 'lr'):
+def draw_trapezoid(start_row, start_left_col, start_right_col, end_row, slope_left = '0.5', slope_right = '0.5', direction = 'lr',
+                  bend_left = 'left', bend_right = 'right'):
     
     if direction == 'lr':
         left_line_dir = [True, False, False, False]
@@ -70,7 +74,7 @@ def draw_trapezoid(start_row, start_left_col, start_right_col, end_row, slope_le
                                           right_up=left_line_dir[3])
     if slope_left == 'inf':
         #line_info = (start_row, (start_left_col, start_left_col)) 
-        left_LINE  = verticle_line(start_row, start_left_col, end_row)
+        left_LINE  = verticle_line(start_row, start_left_col, end_row, bend  =bend_left)
         
     if slope_right == '0.5':
         right_LINE = draw_slope_0p5_diagonal(start_row, start_right_col, end_row, 
@@ -95,7 +99,7 @@ def draw_trapezoid(start_row, start_left_col, start_right_col, end_row, slope_le
         
     if slope_right == 'inf':
         #line_info = (start_row, (start_right_col, start_right_col)) 
-        right_LINE  = verticle_line(start_row, start_right_col, end_row)
+        right_LINE  = verticle_line(start_row, start_right_col, end_row, bend  =bend_right)
         
     
     
@@ -178,7 +182,23 @@ def draw_block(line_info, end_row):
             result.append((row + step, next_cols))
     return horizontal_lines(result)
 
-
+def draw_slope_8p3_diagonal(start_row, start_col, end_row, left_down=True, right_down=True, left_up=True, right_up=True, shift_amount=1):
+    
+    step = 1 if end_row > start_row else -1
+    shift = -shift_amount if (left_down or left_up) else shift_amount
+    result = [(start_row, start_col)]
+    
+    for next_row in range(start_row + step, end_row + step, step):
+        #print(draw_slope_1p5_diagonal(start_row, start_col, next_row, left_down, right_down, left_up, right_up))
+        
+        start_col = draw_slope_1p5_diagonal(start_row, start_col, next_row, left_down, right_down, left_up, right_up)[-1][1] + shift
+        #print(start_col, start_row)
+        start_row = next_row
+        result.append((start_row, start_col))
+        #print((start_row, start_col))
+    
+    return result
+'''
 def draw_slope_8p3_diagonal(start_row, start_col, end_row, left_down=True, right_down=True, left_up=True, right_up=True):
     
     step = 1 if end_row > start_row else -1
@@ -195,7 +215,7 @@ def draw_slope_8p3_diagonal(start_row, start_col, end_row, left_down=True, right
         #print((start_row, start_col))
     
     return result
-
+'''
 def draw_slope_1p5_diagonal(start_row, start_col, end_row, left_down=True, right_down=True, left_up=True, right_up=True):
     slope = 1.5
     is_odd = start_row % 2 == 1
@@ -225,7 +245,15 @@ def draw_slope_1p5_diagonal(start_row, start_col, end_row, left_down=True, right
     
     return result
 
+def draw_slope_1p5_diagonal_shift(start_row, start_col, end_row, shift_gap, shift_amount=1, left_down=True, right_down=True, left_up=True, right_up=True):
+    shift = -shift_amount if (left_down or left_up) else shift_amount
+    line = draw_slope_1p5_diagonal(start_row, start_col, end_row, left_down, right_down, left_up, right_up)
+    return [(row, col + shift * (abs(row - start_row) // shift_gap)) for row, col in line]
 
+def draw_slope_0p5_diagonal_shift(start_row, start_col, end_row, shift_gap, shift_amount=1, left_down=True, right_down=True, left_up=True, right_up=True):
+    shift = -shift_amount if (left_down or left_up) else shift_amount
+    line = draw_slope_0p5_diagonal(start_row, start_col, end_row, left_down, right_down, left_up, right_up)
+    return [(row, col + shift * (abs(row - start_row) // shift_gap)) for row, col in line]
 
 def draw_slope_0p5_diagonal(start_row, start_col, end_row, left_down=True, right_down=True, left_up=True, right_up=True):
     is_odd = start_row % 2 == 1
@@ -259,10 +287,6 @@ def draw_body(start_center_row, start_center_col, n = 2, start = 'head'):
         head_center_row = body_center_row -(n+1+n+1)
         thigh_center_row = body_center_row+n+1+n+1
         
-    head_center_row = start_center_row 
-    body_center_row = head_center_row+n+1+n+1
-    thigh_center_row = body_center_row+n+1+n+1
-    
     head = cg.hex_neighbours_n(head_center_row,center_col, n=n, keep_origin = True)
     head_bottom_r = head_center_row+n
     head_bottom_line_info = (max(r for r, c in head), 
