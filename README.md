@@ -1,7 +1,7 @@
 ## ACG and simulation
+Project simulated trajectory and solution to generate video. 
 
-ACG-related simulations.
-
+**Samples https://www.pixiv.net/en/users/130297007**
 
 **Shared canvas modules** — used by every animation below to build the hex-grid scene/figure:
 [`cg_plot_fn.py`](https://github.com/YZHUANGwork/ACG_and_simulation/blob/main/cg_plot_fn.py) (scene/figure construction), [`cg_draw_fn.py`](https://github.com/YZHUANGwork/ACG_and_simulation/blob/main/cg_draw_fn.py) (drawing helpers), [`cg_color_fn.py`](https://github.com/YZHUANGwork/ACG_and_simulation/blob/main/cg_color_fn.py) (color utilities), [`expected_value.py`](https://github.com/YZHUANGwork/ACG_and_simulation/blob/main/expected_value.py) (matrix computation for color blending)
